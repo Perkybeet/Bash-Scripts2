@@ -1,0 +1,67 @@
+#!/bin/bash
+
+###################################################################
+#Script name	:transfer.sh
+#Description	:Transferir archivos en la misma red local por scp/ssh con tan solo arrastrar x archivos a x carpeta y posteriormente, ejecutar la script en el equipo en el cual se quiere recibir.
+#Author       	:Yago López Prado
+#Email         	:[email protected]
+sudo clear
+cd /
+host=$(zenity --entry \
+                --title="Pregunta" \
+                --width=250 \
+                --text=¿"Remote host you want to access and file location:
+Example: (user)@(ip):(location)")
+nombre=$(zenity --entry \
+                --title="Pregunta" \
+                --width=250 \
+                --text="Binder name where files are going to be moved:")
+
+ubicacion=$(zenity --entry \
+                --title="Pregunta" \
+                --width=250 \
+                --text="Location:
+Example: /home/user/file")
+pass=$(zenity --question \
+                --title="Pregunta" \
+                --width=250 \
+                --ok-label="yes" \
+                --cancel-label="no" \
+                --text="Do you know the remote host password?")
+ans=$?
+        if [ $ans -eq 0 ]
+		then
+			(zenity "Right? (y/n)"
+            "Host  = $host"
+			"Name  = $nombre"
+			"Location    = $ubicacion"
+			"Passw = ****"
+			ans=$(zenity --entry \
+                --title="Correcto?" \
+                --width=250 \
+                --ok-label="yes" \
+                --cancel-label="no" \
+                --text="Right? (y/n)"
+            "Host  = $host"
+			"Name  = $nombre"
+			"Location    = $ubicacion"
+			"Passw = ****")
+answ=$?
+                if [ $answ -eq 0 ]
+				then
+					cd $ubicacion
+				sudo mkdir $nombre
+				cd /
+		echo -ne ' Connecting...\r' && sleep 3 && echo -ne 'ERROR\r'
+		sudo scp -r $host $ubicacion/$nombre
+					if [ $? = 0 ]
+					then
+						echo "Success..."
+						[ "^C" ]
+					else
+						echo "Try again later"
+						sleep 2
+						[ "^C" ]
+					fi
+		        fi
+exit 1
