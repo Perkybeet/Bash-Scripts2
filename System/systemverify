@@ -1,4 +1,4 @@
-#!/bin/bash
+
 #
 #---------------------------------------------------------------------------
 #Script name	:systemverify
@@ -37,7 +37,7 @@ clear #inicio barra de progreso
 echo -ne ' (0%)\r' && echo -ne '### (4%)\r' && sleep 0.2 && echo -ne '#### (5%)\r' && echo -ne '##### (6%)\r' && echo -ne '########################### (67%)\r' && sleep 0.5 && fio
 if [ ! -f /usr/bin/fio ]
 then
-sudo apt install fio
+sudo apt install fio -y
 clear
 fi
 clear
@@ -92,25 +92,6 @@ echo -ne ' (0%)\r' && echo -ne '### (4%)\r' && echo -ne '#### (5%)\r' && echo -n
             sleep 1
         fi
 clear
-echo "Desea almacenar los resultados de esta prueba?"
-read input
-if [ $input = "s" ]
-then
-comp=comprobaciones
-    if [ -f reg_systemverify.txt ]
-    then
-        $comp>reg_systemverify.txt
-    else
-        sudo touch reg_systemverify.txt
-        sudo $comp>reg_systemverify.txt
-    fi
-else
-echo --------------------------
-    echo -ne 'CComprobaciones abortadas|\r'
-    echo "|"
-    echo --------------------------
-    exit 0
-fi
     echo Comprobaciones realizadas correctamente.
         echo =====================================
         exit 0
@@ -131,9 +112,6 @@ read
 
 ayuda()
 {
-            clear
-            cowsay -f tux.cow "Bienvenido de nuevo, $(whoami)!"
-            cal
             cd /
             echo =========================================
             echo  "volver    =   Vuelve al inicio"
@@ -143,7 +121,7 @@ ayuda()
         echo -n ": "
         read intro
 }
-bucle1()
+inicio1()
 {
 while true
 do
@@ -176,7 +154,7 @@ fi
 fi
 done
 }
-blucle()
+inicio()
 {
 while true
 do
@@ -209,5 +187,5 @@ fi
 done
 }
 bienvenida #bienvenida (1 vez por ejecución)
-blucle
-blucle1
+inicio
+inicio1
