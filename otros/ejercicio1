@@ -1,0 +1,36 @@
+#!/bin/bash
+
+###################################################################
+#Script name	:ejercicio1.sh
+#Description	:Abrir aplicaciones según la entrada
+#Author       	:Yago López Prado
+#Email         	:[email protected]
+
+#funciones
+clear
+echo "Que aplicación desea ejecutar?"
+echo " ========================="
+echo "| 1   = LibreOffice       |   "
+echo "| 2   = Firefox           |   "
+echo "| 3   = Disk              |   "
+echo "| 4   = Usuarios y grupos |   "
+echo "| 0   = Salir             |   "
+echo " ========================="
+var1=$(zenity --entry --title="Elige una opción" --with)
+
+        case $var1 in
+
+        1)  echo "Abriendo..."
+            libreoffice
+            clear;;
+        2)  echo "Abriendo..."
+            firefox
+            clear;;
+        3)  echo "Abriendo..."
+            baobab
+            clear;;
+        4)  echo "Abriendo..."
+            cinnamon-settings-users
+            clear;;
+        0)  exit 0
+        esac
