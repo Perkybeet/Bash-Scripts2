@@ -1,6 +1,0 @@
-n=0
-for ((contador=0;contador<=$1;contador++))
-do
-echo "$n" >> archivo.txt
-n=$((n+1))
-done
