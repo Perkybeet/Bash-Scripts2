@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#---------------------------------------------------------------------------
+#Script name	:randnum
+#Description	:
+#Author       	:Yago López Prado
+#license        :https://github.com/Perkybeet/bash-scripts/blob/main/LICENSE
+#Email         	:"yago2003.lopez@gmail.com"
+#---------------------------------------------------------------------------
+
+#modificar valor "% " para alterar la escala.
+num=$((RANDOM%10))
+echo $num
