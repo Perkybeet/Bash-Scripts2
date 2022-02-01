@@ -85,7 +85,7 @@ configuracion_ufw()
 }
 configuracion_red()
 {
-	echo -e -n "\e[93mRed... \e[0m"
+	echo -e -n "\e[93mNetwork... \e[0m"
 	read -N1 -s -p "Change network config? (y/n) " change_net
 		if [ $change_net = "y" ]; then
 		read -p -n "Ip: " ip
