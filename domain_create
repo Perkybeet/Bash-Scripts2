@@ -1,0 +1,122 @@
+#!/bin/bash
+#funciones
+check_p()
+{
+	[ $? = 0 ] && echo -e "\e[32mOk.\e[0m" || echo -e "\e[91mERROR.\e[0m"
+}
+dpkg_solved()
+{
+[ $? != 0 ] && dpkg --configure -a; apt install -f -y; apt autoremove; mv /var/lib/dpkg/info/"${pack/ /}".* /tmp; apt --fix-broken install; apt update; apt install $pack --allow-remove-essential -y;
+}
+confirmar_instalacion()
+{
+echo -e "\e[91mPackages needed: \e[93m${falta[@]}\e[0m \e[91m Install? (y/n)\e[0m"
+read -N1 -s install
+	if [ $install = "y" ]
+	then
+		for pack in "${falta[@]}"
+		do
+		apt install $pack --allow-remove-essential -y
+		dpkg_solved
+		done
+	configuracion_all
+	else
+	echo -e "\e[93mWARNING:\e[0m Packages: (${falta[@]/ /}) are missing."
+	echo "Starting domain config..."
+	configuracion_all
+	exit
+	fi
+}
+add()
+{
+if [ $? != 0 ]
+then
+        $i=1 > /dev/null 2>&1
+	falta+=("$i");
+else
+        [ $once = "0" ] && echo -e " \e[32mOk\e[0m";
+        $i=0 > /dev/null 2>&1
+        once=1
+fi
+
+}
+configuracion_samba()
+{
+	mv /etc/samba/smb.conf /etc/samba/smb.conf.copy > /dev/null 2>&1
+	echo -e "\e[32m+========================+\e[0m"
+	samba-tool domain provision
+	if [ $? != 0 ]; then 
+		echo -e "\e[91mERROR:\e[0m samba-tool provided an exit code (1)"
+		exit
+	else
+		echo -e "\e[32m+========================+\e[0m"
+		echo "Checking services..."
+		echo -e -n "\e[93mSamba... \e[0m"
+		mv /var/lib/samba/private/krb5.conf /etc > /dev/null 2>&1
+		systemctl stop smbd winbind systemd-resolved > /dev/null 2>&1
+		systemctl disable smbd nmbd winbind systemd-resolved > /dev/null 2>&1
+		systemctl start samba-ad-dc > /dev/null 2>&1
+		systemctl enable samba-ad-dc > /dev/null 2>&1
+		systemctl unmask samba-ad-dc > /dev/null 2>&1
+		systemctl enable samba-ad-dc > /dev/null 2>&1
+		systemctl restart samba-ad-dc > /dev/null 2>&1
+		systemctl start samba-ad-dc > /dev/null 2>&1
+		check_p
+	fi
+}
+configuracion_apache()
+{
+	echo -e -n "\e[93mApache... \e[0m"
+	systemctl start apache2 > /dev/null 2>&1
+	systemctl enable apache2 > /dev/null 2>&1
+	systemctl status apache2 > /dev/null 2>&1
+	check_p
+}
+configuracion_ufw()
+{
+	echo -e -n "\e[93mUfw... \e[0m"
+	ufw allow 'Apache' > /dev/null 2>&1
+	if [[ `sudo ufw status > /dev/null 2>&1 | cut -d":" -f2 | xargs` == "inactive" ]]
+	then
+	read -N1 -s -p "Firewall (ufw) it's not enabled. Enable it? (y/n)" ufw
+	[ $ufw = "y" ] && ufw enable > /dev/null 2>&1; check_p;
+	else check_p
+	fi
+}
+configuracion_red()
+{
+	echo -e -n "\e[93mRed... \e[0m"
+	read -N1 -s -p "Change network config? (y/n) " change_net
+		if [ $change_net = "y" ]; then
+		read -p -n "Ip: " ip
+		read -p "Gateway: " gateway
+		echo -N11 "auto enp0s3\qniface enp0s3 inet static\n    address $ip\n    netmask 255.255.255.0\n    gateway $gateway" > prueba_red
+		fi
+}
+configuracion_all()
+{
+	configuracion_samba
+	configuracion_apache
+	configuracion_bind
+	configuracion_ufw
+}
+[ "$UID" -ne "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error."
+if [ -z $1 ]; then
+	#var
+	paquetes=("samba" \ "smbclient" \ "winbind" \ "systemctl" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "python")
+	once=0
+	#depencendies
+	echo -e -n "\e[32mCheking dependencies...\e[0m"
+	for i in "${paquetes[@]}"
+	do
+	dpkg -s $i > /dev/null 2>&1
+		add
+	done
+	if [ "${falta}" != "" ]; then 
+		confirmar_instalacion
+	else
+		configuracion_all
+	fi
+else
+configuracion_$1
+fi
