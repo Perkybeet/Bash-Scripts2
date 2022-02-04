@@ -1,16 +1,16 @@
 #!/bin/bash
-#funciones
-check_p()
+
+check_p() #Devuelve una respuesta en funcion del codigo stdout
 {
-	[ $? = 0 ] && echo -e "\e[32mOk.\e[0m" || echo -e "\e[91mERROR.\e[0m"
+	[ $? = 0 ] && echo -e "\e[32mOk.\e[0m $1" || echo -e "\e[91mERROR.\e[0m $1"
 }
-dpkg_solved()
+dpkg_solved() #Intenta solventar cualquier problema con la instalacion de algun paquete
 {
 [ $? != 0 ] && dpkg --configure -a; apt install -f -y; apt autoremove; mv /var/lib/dpkg/info/"${pack/ /}".* /tmp; apt --fix-broken install; apt update; apt install $pack --allow-remove-essential -y;
 }
-confirmar_instalacion()
+confirm_install() #Confirma la instalacion de las dependencias
 {
-echo -e "\e[91mPackages needed: \e[93m${falta[@]}\e[0m \e[91m Install? (y/n)\e[0m"
+echo -e "\e[91mPackages needed: \e[93m${falta[@]}\e[0m \e[91m Install? (y/n/e)\e[0m"
 read -N1 -s install
 	if [ $install = "y" ]
 	then
@@ -19,15 +19,16 @@ read -N1 -s install
 		apt install $pack --allow-remove-essential -y
 		dpkg_solved
 		done
-	configuracion_all
+	config_all
 	else
+	[ $install = "e" ] && exit
 	echo -e "\e[93mWARNING:\e[0m Packages: (${falta[@]/ /}) are missing."
 	echo "Starting domain config..."
-	configuracion_all
+	config_all
 	exit
 	fi
 }
-add()
+add() #Comprueba que paquetes estan instalados y cuales faltan para posteriormente almacenarlos y mostrarlos
 {
 if [ $? != 0 ]
 then
@@ -40,12 +41,12 @@ else
 fi
 
 }
-configuracion_samba()
+config_samba() #Configuracion del dominio y rol del equipo
 {
 	mv /etc/samba/smb.conf /etc/samba/smb.conf.copy > /dev/null 2>&1
 	echo -e "\e[32m+========================+\e[0m"
 	samba-tool domain provision
-	if [ $? != 0 ]; then 
+	if [ $? != 0 ]; then
 		echo -e "\e[91mERROR:\e[0m samba-tool provided an exit code (1)"
 		exit
 	else
@@ -64,7 +65,7 @@ configuracion_samba()
 		check_p
 	fi
 }
-configuracion_apache()
+config_apache()
 {
 	echo -e -n "\e[93mApache... \e[0m"
 	systemctl start apache2 > /dev/null 2>&1
@@ -72,7 +73,7 @@ configuracion_apache()
 	systemctl status apache2 > /dev/null 2>&1
 	check_p
 }
-configuracion_ufw()
+config_ufw() #Configuracion del funcionamiento y estado del firewall
 {
 	echo -e -n "\e[93mUfw... \e[0m"
 	ufw allow 'Apache' > /dev/null 2>&1
@@ -83,40 +84,49 @@ configuracion_ufw()
 	else check_p
 	fi
 }
-configuracion_red()
+config_red()
 {
-	echo -e -n "\e[93mNetwork... \e[0m"
+	echo -e -n "\e[93mRed... \e[0m"
 	read -N1 -s -p "Change network config? (y/n) " change_net
 		if [ $change_net = "y" ]; then
-		read -p -n "Ip: " ip
-		read -p "Gateway: " gateway
-		echo -N11 "auto enp0s3\qniface enp0s3 inet static\n    address $ip\n    netmask 255.255.255.0\n    gateway $gateway" > prueba_red
+		net_interfaces
 		fi
 }
-configuracion_all()
+net_interfaces()
 {
-	configuracion_samba
-	configuracion_apache
-	configuracion_bind
-	configuracion_ufw
+net=("target" \ "ip" \ "network" \ "gateway" \ "netmask")
+for i in ${net[@]}
+do
+read -p "$i: " $i
+done
+echo -e "#auto $target\n#iface $target inet static\n#   address $ip\n#   network $network\n#   netmask $netmask\n#   gateway $gateway" >> prueba_red
+nano /etc/network/interfaces
+
+/etc/init.d/networking restart
+}
+net_netplan()
+{
+eval
+}
+config_all()
+{
+	config_samba
+	config_apache
+	config_bind
+	config_ufw
 }
 [ "$UID" -ne "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error."
 if [ -z $1 ]; then
-	#var
-	paquetes=("samba" \ "smbclient" \ "winbind" \ "systemctl" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "python")
+	# Array con los paquetes necesarios para todo el proceso
+	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "python")
 	once=0
-	#depencendies
+	# Comprueba las dependencias
 	echo -e -n "\e[32mCheking dependencies...\e[0m"
-	for i in "${paquetes[@]}"
+	for i in "${packages[@]}"
 	do
 	dpkg -s $i > /dev/null 2>&1
 		add
 	done
-	if [ "${falta}" != "" ]; then 
-		confirmar_instalacion
-	else
-		configuracion_all
-	fi
-else
-configuracion_$1
+	[ "${falta}" != "" ] && confirm_install || config_all
+else config_$1
 fi
