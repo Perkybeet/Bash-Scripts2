@@ -1,8 +1,21 @@
 #!/bin/bash
-
+load()
+{
+echo -n ""
+bar="/|\\-/|\\-"
+  while :
+  do
+    for i in `seq 0 7`
+    do
+      echo -n "${bar:$i:1}"
+      echo -en "\010"
+      sleep 0.2
+    done
+  done
+}
 check_p() #Devuelve una respuesta en funcion del codigo stdout
 {
-	[ $? = 0 ] && echo -e "\e[32mOk.\e[0m $1" || echo -e "\e[91mERROR.\e[0m $1"
+	[ $? = 0 ] && echo -e "\e[32mOk.                         \e[0m $1" || echo -e "\e[91mERROR.                         \e[0m $1"
 }
 dpkg_solved() #Intenta solventar cualquier problema con la instalacion de algun paquete
 {
@@ -47,7 +60,7 @@ config_samba() #Configuracion del dominio y rol del equipo
 	echo -e "\e[32m+========================+\e[0m"
 	samba-tool domain provision
 	if [ $? != 0 ]; then
-		echo -e "\e[91mERROR:\e[0m samba-tool provided an exit code (1)"
+		echo -e "\e[91mERROR:\e[0m samba-tool provided an exit code ($?)"
 		exit
 	else
 		echo -e "\e[32m+========================+\e[0m"
@@ -62,6 +75,11 @@ config_samba() #Configuracion del dominio y rol del equipo
 		systemctl enable samba-ad-dc > /dev/null 2>&1
 		systemctl restart samba-ad-dc > /dev/null 2>&1
 		systemctl start samba-ad-dc > /dev/null 2>&1
+		load &
+		sleep 3
+		spin_pid=$!
+		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+		eval
 		check_p
 	fi
 }
@@ -71,38 +89,74 @@ config_apache()
 	systemctl start apache2 > /dev/null 2>&1
 	systemctl enable apache2 > /dev/null 2>&1
 	systemctl status apache2 > /dev/null 2>&1
+	load &
+	sleep 3
+	spin_pid=$!
+	{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+	eval #proc ok
 	check_p
 }
 config_ufw() #Configuracion del funcionamiento y estado del firewall
 {
 	echo -e -n "\e[93mUfw... \e[0m"
 	ufw allow 'Apache' > /dev/null 2>&1
-	if [[ `sudo ufw status > /dev/null 2>&1 | cut -d":" -f2 | xargs` == "inactive" ]]
+	if [[ `/usr/sbin/ufw status > /dev/null 2>&1 | cut -d":" -f2 | xargs` == "inactive" ]]
 	then
 	read -N1 -s -p "Firewall (ufw) it's not enabled. Enable it? (y/n)" ufw
 	[ $ufw = "y" ] && ufw enable > /dev/null 2>&1; check_p;
-	else check_p
+	else
+	load &
+	sleep 3
+	spin_pid=$!
+	{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+	eval #proc ok
+	check_p
 	fi
 }
-config_red()
+config_network()
 {
-	echo -e -n "\e[93mRed... \e[0m"
+	echo -e -n "\e[93mNetwork... \e[0m"
 	read -N1 -s -p "Change network config? (y/n) " change_net
+
 		if [ $change_net = "y" ]; then
-		net_interfaces
+			for target in ${interfaces[@]}
+			do
+			ps aux | grep -v grep | awk '{print $11}' | grep $target
+				if [ $? = 0 ]; then
+				[ $target = "NetworkManager" ] && net_interfaces
+				[ $target = "Networkd" ] && net_netplan
+				else echo $((net_nf++)) > /dev/null 2>&1
+				fi
+			done
+			[ "$net_nf" = "${#interfaces[@]}" ] && echo -e "\e[91mERROR:\e[0m Network target not found x$$"
+		else echo -e -n "\r\e[93mNetwork...                                      \e[0m"
+		     echo -e -n "\r\e[93mNetwork...  \e[0m"
+		     load &
+		     sleep 3
+		     spin_pid=$!
+		     { kill $spin_pid && wait $spin_pid; } 2>/dev/null
+		     eval #proc ok
+		     check_p
 		fi
 }
 net_interfaces()
 {
+echo -e "#auto lo\n#iface lo inet loopback\n\n" > prueba_red
 net=("target" \ "ip" \ "network" \ "gateway" \ "netmask")
-for i in ${net[@]}
+read -p "Nº Targets: " n_target
+for (( c=1; c<=$n_target; c++ ))
 do
-read -p "$i: " $i
+	for i in ${net[@]}
+	do
+	read -p "$i: " $i
+	done
+	echo -e "#auto $target\n#iface $target inet static\n#   address $ip\n#   network $network\n#   netmask $netmask\n#   gateway $gateway\n\n\n" >> prueba_red
 done
-echo -e "#auto $target\n#iface $target inet static\n#   address $ip\n#   network $network\n#   netmask $netmask\n#   gateway $gateway" >> prueba_red
-nano /etc/network/interfaces
+nano prueba_red
+[ $? > 1 ] && return 1; exit
+/etc/init.d/NetworkManager restart > /dev/null 2>&1
+check_p
 
-/etc/init.d/networking restart
 }
 net_netplan()
 {
@@ -112,21 +166,49 @@ config_all()
 {
 	config_samba
 	config_apache
-	config_bind
 	config_ufw
+	config_network
 }
-[ "$UID" -ne "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error."
-if [ -z $1 ]; then
+[ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
 	# Array con los paquetes necesarios para todo el proceso
-	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "python")
+	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "python" \ "krb5-config" )
+	interfaces=("NetworkManager" \ "Networkd")
+	net_nf=0
 	once=0
+	if [ -z $1 ]; then
+	grep "deb http://download.webmin.com/download/repositssory sarge contrib" /etc/apt/sources.list
+	if [ $? != 0 ]; then
+		echo "deb http://download.webmin.com/download/repositssory sarge contrib" >> /etc/apt/sources.list
+		echo -n "Loading rep... "
+		apt update > /dev/null 2>&1
+		load &
+		spin_pid=$!
+		sleep 2
+		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+	fi
 	# Comprueba las dependencias
-	echo -e -n "\e[32mCheking dependencies...\e[0m"
+	echo -e -n "\r\e[32mChecking dependencies...\e[0m"
 	for i in "${packages[@]}"
 	do
 	dpkg -s $i > /dev/null 2>&1
 		add
 	done
 	[ "${falta}" != "" ] && confirm_install || config_all
-else config_$1
+else
+invalid_in1="\e[91mERROR:\e[0m Invalid argument ($1)"
+invalid_in2="\e[91mERROR:\e[0m Invalid argument ($2)"
+missing="\e[91mERROR:\e[0m One or more arguments are missing"
+	case $1 in
+	user)	case $2 in
+		create);;test
+		add);;
+		delete);;
+		"")echo -e $missing;;
+		*)echo -e $invalid_in2;;
+		esac;;
+	time);;
+	"")echo -e $missing;;
+	*)echo -e $invalid_in1;;
+	esac
+
 fi
