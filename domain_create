@@ -100,6 +100,7 @@ config_ufw() #Configuracion del funcionamiento y estado del firewall
 {
 	echo -e -n "\e[93mUfw... \e[0m"
 	ufw allow 'Apache' > /dev/null 2>&1
+	ufw allow 10000/tcp > /dev/null 2>&1
 	if [[ `/usr/sbin/ufw status > /dev/null 2>&1 | cut -d":" -f2 | xargs` == "inactive" ]]
 	then
 	read -N1 -s -p "Firewall (ufw) it's not enabled. Enable it? (y/n)" ufw
@@ -128,7 +129,7 @@ config_network()
 				else echo $((net_nf++)) > /dev/null 2>&1
 				fi
 			done
-			[ "$net_nf" = "${#interfaces[@]}" ] && echo -e "\e[91mERROR:\e[0m Network target not found x$$"
+			[ "$net_nf" = "${#interfaces[@]}" ] && echo -e "\e[91mERROR:\e[0m Network target not found x$$, changing default..."; net_interfaces
 		else echo -e -n "\r\e[93mNetwork...                                      \e[0m"
 		     echo -e -n "\r\e[93mNetwork...  \e[0m"
 		     load &
@@ -141,7 +142,7 @@ config_network()
 }
 net_interfaces()
 {
-echo -e "#Descomente las lineas a continuacion para activar o desactivar los adaptadores de red\n\n#auto lo\n#iface lo inet loopback\n\n#Red primaria\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp" > prueba_red
+echo -e "#Uncomment lines below for enable it\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
 net=("target" \ "ip" \ "network" \ "gateway" \ "netmask")
 read -p "Nº Targets: " n_target
 for (( c=1; c<=$n_target; c++ ))
@@ -150,12 +151,12 @@ do
 	do
 	read -p "$i: " $i
 	done
-	echo -e "#auto $target\n#iface $target inet static\n#   address $ip\n#   network $network\n#   netmask $netmask\n#   gateway $gateway\n\n\n" >> prueba_red
+	echo -e "#auto $target\n#iface $target inet static\n#address $ip\n#network $network\n#netmask $netmask\n#gateway $gateway\n\n\n" >> /etc/network/interfaces
 done
-nano prueba_red
-[ $? > 1 ] && return 1; exit
+nano /etc/network/interfaces
 /etc/init.d/NetworkManager restart > /dev/null 2>&1
-/usr/sbin/dhclient
+/etc/init.d/networking.service > /dev/null 2>&1
+/usr/sbin/dhclient > /dev/null 2>&1
 check_p
 
 }
@@ -172,27 +173,35 @@ config_all()
 }
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
 	# Array con los paquetes necesarios para todo el proceso
-	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "python" \ "krb5-config" )
+	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "krb5-config" )
 	interfaces=("NetworkManager" \ "Networkd")
 	net_nf=0
 	once=0
 	if [ -z $1 ]; then
-	grep "deb http://download.webmin.com/download/repositssory sarge contrib" /etc/apt/sources.list
+	grep "deb http://download.webmin.com/download/repository sarge contrib" /etc/apt/sources.list > /dev/null 2>&1
 	if [ $? != 0 ]; then
-		echo "deb http://download.webmin.com/download/repositssory sarge contrib" >> /etc/apt/sources.list
-		echo -n "Loading rep... "
-		apt update > /dev/null 2>&1
+		echo -n -e "\rModifying apt resources...  "
 		load &
 		spin_pid=$!
-		sleep 2
+		sleep .8
+		echo "deb http://download.webmin.com/download/repository sarge contrib" >> /etc/apt/sources.list
+		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+		echo -n -e "\rLoading rep from archive.ubuntu.com...  "
+		load &
+		spin_pid=$!
+		wget http://www.webmin.com/jcameron-key.asc > /dev/null 2>&1
+		apt-key add jcameron-key.asc > /dev/null 2>&1
+		apt update > /dev/null 2>&1
+		rm jcameron-key.asc > /dev/null 2>&1
 		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
 	fi
 	# Comprueba las dependencias
-	echo -e -n "\r\e[32mChecking dependencies...\e[0m"
+	echo -e -n "\rChecking resources dependencies...  "
 	for i in "${packages[@]}"
 	do
 	dpkg -s $i > /dev/null 2>&1
 		add
+	sleep 0.2
 	done
 	[ "${falta}" != "" ] && confirm_install || config_all
 else
@@ -208,6 +217,7 @@ missing="\e[91mERROR:\e[0m One or more arguments are missing"
 		*)echo -e $invalid_in2;;
 		esac;;
 	time);;
+	-p)config_$2;;
 	"")echo -e $missing;;
 	*)echo -e $invalid_in1;;
 	esac
