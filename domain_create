@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -xv
 load()
 {
 echo -n ""
@@ -122,10 +122,10 @@ config_network()
 		if [ $change_net = "y" ]; then
 			for target in ${interfaces[@]}
 			do
-			ps aux | grep -v grep | awk '{print $11}' | grep $target
-				if [ $? = 0 ]; then
-				[ $target = "NetworkManager" ] && net_interfaces
-				[ $target = "Networkd" ] && net_netplan
+			echo $target
+				if [ {ps aux | grep -v grep | awk '{print $11}' | grep $target} ]; then
+					if [ $target = "NetworkManager" ] && [ $net_f = 0 ]; then net_interfaces; $((net_f++));fi
+					#if [ $target = "Networkd" ] && [ $net_f = 0 ]; then net_netplan; $((net_f++));fi
 				else echo $((net_nf++)) > /dev/null 2>&1
 				fi
 			done
@@ -143,7 +143,7 @@ config_network()
 net_interfaces()
 {
 echo -e "#Uncomment lines below for enable it\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
-net=("target" \ "ip" \ "network" \ "gateway" \ "netmask")
+net=("target" \ "ip" \ "network" \ "netmask")
 read -p "Nº Targets: " n_target
 for (( c=1; c<=$n_target; c++ ))
 do
@@ -151,14 +151,13 @@ do
 	do
 	read -p "$i: " $i
 	done
-	echo -e "allow-hotplug\niface $target inet static\naddress $ip\nnetwork $network\nnetmask $netmask\ngateway $gateway\n\n\n" >> /etc/network/interfaces
+	echo -e "auto $target\niface $target inet static\naddress $ip\n\nnetmask $netmask\n\nnetwork $network" >> /etc/network/interfaces
 done
 nano /etc/network/interfaces
 /etc/init.d/NetworkManager restart > /dev/null 2>&1
 /etc/init.d/networking.service > /dev/null 2>&1
 /usr/sbin/dhclient > /dev/null 2>&1
 check_p
-
 }
 net_netplan()
 {
@@ -171,15 +170,35 @@ config_all()
 	config_ufw
 	config_network
 }
+clean_stat()
+{
+echo -e "\r                                                                                "
+}
+config_structure()
+{
+echo -e -n "\e[93mGenerating structure... \e[0m"
+load &
+spin_pid=$!
+	#usuarios
+	for u in ${users[@]}
+	do
+	/usr/sbin/useradd u -p 12345abcd.
+	
+	done
+{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+}
+
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
 	# Array con los paquetes necesarios para todo el proceso
-	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "krb5-config" )
+	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "krb5-config" \ "ntp" )
 	interfaces=("NetworkManager" \ "Networkd")
+	users=("sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe")
 	net_nf=0
+	net_f=0
 	once=0
 	if [ -z $1 ]; then
 	grep "deb http://download.webmin.com/download/repository sarge contrib" /etc/apt/sources.list > /dev/null 2>&1
-	if [ $? != 0 ]; then
+		if [ $? != 0 ]; then
 		echo -n -e "\rModifying apt resources...  "
 		load &
 		spin_pid=$!
@@ -194,32 +213,32 @@ config_all()
 		apt update > /dev/null 2>&1
 		rm jcameron-key.asc > /dev/null 2>&1
 		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
-	fi
+		fi
 	# Comprueba las dependencias
 	echo -e -n "\rChecking resources dependencies...  "
-	for i in "${packages[@]}"
-	do
-	dpkg -s $i > /dev/null 2>&1
-		add
-	sleep 0.2
-	done
+		for i in "${packages[@]}"
+		do
+		dpkg -s $i > /dev/null 2>&1
+			add
+		sleep 0.2
+		done
 	[ "${falta}" != "" ] && confirm_install || config_all
-else
-invalid_in1="\e[91mERROR:\e[0m Invalid argument ($1)"
-invalid_in2="\e[91mERROR:\e[0m Invalid argument ($2)"
-missing="\e[91mERROR:\e[0m One or more arguments are missing"
-	case $1 in
-	user)	case $2 in
-		create);;
-		add);;
-		delete);;
+	else
+	invalid_in1="\e[91mERROR:\e[0m Invalid argument ($1)"
+	invalid_in2="\e[91mERROR:\e[0m Invalid argument ($2)"
+	missing="\e[91mERROR:\e[0m One or more arguments are missing"
+		case $1 in
+		user)	case $2 in
+			create);;
+			add);;
+			delete);;
+			"")echo -e $missing;;
+			*)echo -e $invalid_in2;;
+			esac;;
+		time);;
+		-p)config_$2;;
 		"")echo -e $missing;;
-		*)echo -e $invalid_in2;;
-		esac;;
-	time);;
-	-p)config_$2;;
-	"")echo -e $missing;;
-	*)echo -e $invalid_in1;;
-	esac
+		*)echo -e $invalid_in1;;
+		esac
 
 fi
