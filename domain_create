@@ -141,7 +141,7 @@ config_network()
 }
 net_interfaces()
 {
-echo -e "#auto lo\n#iface lo inet loopback\n\n" > prueba_red
+echo -e "#Descomente las lineas a continuacion para activar o desactivar los adaptadores de red\n\n#auto lo\n#iface lo inet loopback\n\n#Red primaria\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp" > prueba_red
 net=("target" \ "ip" \ "network" \ "gateway" \ "netmask")
 read -p "Nº Targets: " n_target
 for (( c=1; c<=$n_target; c++ ))
@@ -155,6 +155,7 @@ done
 nano prueba_red
 [ $? > 1 ] && return 1; exit
 /etc/init.d/NetworkManager restart > /dev/null 2>&1
+/usr/sbin/dhclient
 check_p
 
 }
