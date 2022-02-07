@@ -151,7 +151,7 @@ do
 	do
 	read -p "$i: " $i
 	done
-	echo -e "#auto $target\n#iface $target inet static\n#address $ip\n#network $network\n#netmask $netmask\n#gateway $gateway\n\n\n" >> /etc/network/interfaces
+	echo -e "allow-hotplug\niface $target inet static\naddress $ip\nnetwork $network\nnetmask $netmask\ngateway $gateway\n\n\n" >> /etc/network/interfaces
 done
 nano /etc/network/interfaces
 /etc/init.d/NetworkManager restart > /dev/null 2>&1
