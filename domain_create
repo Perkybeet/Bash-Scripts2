@@ -200,7 +200,7 @@ invalid_in2="\e[91mERROR:\e[0m Invalid argument ($2)"
 missing="\e[91mERROR:\e[0m One or more arguments are missing"
 	case $1 in
 	user)	case $2 in
-		create);;test
+		create);;
 		add);;
 		delete);;
 		"")echo -e $missing;;
