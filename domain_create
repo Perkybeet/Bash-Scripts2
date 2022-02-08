@@ -1,4 +1,4 @@
-#!/bin/bash -xv
+#!/bin/bash
 load()
 {
 echo -n ""
@@ -66,6 +66,8 @@ config_samba() #Configuracion del dominio y rol del equipo
 		echo -e "\e[32m+========================+\e[0m"
 		echo "Checking services..."
 		echo -e -n "\e[93mSamba... \e[0m"
+		load &
+		spin_pid=$!
 		mv /var/lib/samba/private/krb5.conf /etc > /dev/null 2>&1
 		systemctl stop smbd winbind systemd-resolved > /dev/null 2>&1
 		systemctl disable smbd nmbd winbind systemd-resolved > /dev/null 2>&1
@@ -75,9 +77,6 @@ config_samba() #Configuracion del dominio y rol del equipo
 		systemctl enable samba-ad-dc > /dev/null 2>&1
 		systemctl restart samba-ad-dc > /dev/null 2>&1
 		systemctl start samba-ad-dc > /dev/null 2>&1
-		load &
-		sleep 3
-		spin_pid=$!
 		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
 		eval
 		check_p
@@ -86,12 +85,11 @@ config_samba() #Configuracion del dominio y rol del equipo
 config_apache()
 {
 	echo -e -n "\e[93mApache... \e[0m"
+	load &
+	spin_pid=$!
 	systemctl start apache2 > /dev/null 2>&1
 	systemctl enable apache2 > /dev/null 2>&1
 	systemctl status apache2 > /dev/null 2>&1
-	load &
-	sleep 3
-	spin_pid=$!
 	{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
 	eval #proc ok
 	check_p
@@ -99,6 +97,8 @@ config_apache()
 config_ufw() #Configuracion del funcionamiento y estado del firewall
 {
 	echo -e -n "\e[93mUfw... \e[0m"
+	load &
+	spin_pid=$!
 	ufw allow 'Apache' > /dev/null 2>&1
 	ufw allow 10000/tcp > /dev/null 2>&1
 	if [[ `/usr/sbin/ufw status > /dev/null 2>&1 | cut -d":" -f2 | xargs` == "inactive" ]]
@@ -106,9 +106,6 @@ config_ufw() #Configuracion del funcionamiento y estado del firewall
 	read -N1 -s -p "Firewall (ufw) it's not enabled. Enable it? (y/n)" ufw
 	[ $ufw = "y" ] && ufw enable > /dev/null 2>&1; check_p;
 	else
-	load &
-	sleep 3
-	spin_pid=$!
 	{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
 	eval #proc ok
 	check_p
@@ -122,19 +119,19 @@ config_network()
 		if [ $change_net = "y" ]; then
 			for target in ${interfaces[@]}
 			do
-			echo $target
-				if [ {ps aux | grep -v grep | awk '{print $11}' | grep $target} ]; then
-					if [ $target = "NetworkManager" ] && [ $net_f = 0 ]; then net_interfaces; $((net_f++));fi
+			ps aux | grep -v grep | awk '{print $11}' | grep $target >/dev/null 2>&1
+					if [ $? = 0 ]; then
+					if [ $target = "NetworkManager" ] && [ $net_f = 0 ]; then net_interfaces; echo $((net_f++)) > /dev/null 2>&1;fi
 					#if [ $target = "Networkd" ] && [ $net_f = 0 ]; then net_netplan; $((net_f++));fi
-				else echo $((net_nf++)) > /dev/null 2>&1
-				fi
+					else echo $((net_nf++)) > /dev/null 2>&1
+					fi
 			done
-			[ "$net_nf" = "${#interfaces[@]}" ] && echo -e "\e[91mERROR:\e[0m Network target not found x$$, changing default..."; net_interfaces
+			if [ $net_nf = ${#interfaces[@]} ]; then echo -e "\e[91mERROR:\e[0m Network target not found x$$, changing default..."; net_interfaces; fi
 		else echo -e -n "\r\e[93mNetwork...                                      \e[0m"
 		     echo -e -n "\r\e[93mNetwork...  \e[0m"
 		     load &
-		     sleep 3
 		     spin_pid=$!
+		     sleep 2.5
 		     { kill $spin_pid && wait $spin_pid; } 2>/dev/null
 		     eval #proc ok
 		     check_p
@@ -142,20 +139,25 @@ config_network()
 }
 net_interfaces()
 {
-echo -e "#Uncomment lines below for enable it\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
-net=("target" \ "ip" \ "network" \ "netmask")
-read -p "Nº Targets: " n_target
+echo -e -n "#Uncomment lines below for enable it\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
+net=("Target" \ "Ip" \ "Network" \ "Netmask")
+clean_stat
+echo -e -n "\r\e[93mNetwork... \e[0mNº Targets: "
+read n_target
 for (( c=1; c<=$n_target; c++ ))
 do
+echo -e "\e[32m<=========>\e[0m"
 	for i in ${net[@]}
 	do
-	read -p "$i: " $i
+	echo -e -n "\r$i [$c]: "
+	read $i
 	done
-	echo -e "auto $target\niface $target inet static\naddress $ip\n\nnetmask $netmask\n\nnetwork $network" >> /etc/network/interfaces
+	echo -e "auto $Target\niface $target inet static\naddress $Ip\nnetmask $Netmask\nnetwork $network" >> /etc/network/interfaces
 done
 nano /etc/network/interfaces
 /etc/init.d/NetworkManager restart > /dev/null 2>&1
 /etc/init.d/networking.service > /dev/null 2>&1
+/etc/init.d/networking restart > /dev/null 2>&1
 /usr/sbin/dhclient > /dev/null 2>&1
 check_p
 }
@@ -169,10 +171,11 @@ config_all()
 	config_apache
 	config_ufw
 	config_network
+	config_structure
 }
 clean_stat()
 {
-echo -e "\r                                                                                "
+echo -e -n "\r                                                                                "
 }
 config_structure()
 {
@@ -182,15 +185,17 @@ spin_pid=$!
 	#usuarios
 	for u in ${users[@]}
 	do
-	/usr/sbin/useradd u -p 12345abcd.
-	
+	/usr/sbin/useradd u -p 12345abcd. 2> /dev/null
 	done
+	sleep 0.6
+mkdir /srv/samba /srv/samba/comun /srv/samba/dam1 /srv/samba/dam2 /srv/samba/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/personas/alumnos/dam1 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
 { kill $spin_pid && wait $spin_pid; } 2>/dev/null
+check_p
 }
 
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
 	# Array con los paquetes necesarios para todo el proceso
-	packages=("samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "krb5-config" \ "ntp" )
+	packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "ntp" \ "ntp")
 	interfaces=("NetworkManager" \ "Networkd")
 	users=("sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe")
 	net_nf=0
@@ -242,3 +247,4 @@ spin_pid=$!
 		esac
 
 fi
+
