@@ -135,12 +135,14 @@ config_network()
 		     { kill $spin_pid && wait $spin_pid; } 2>/dev/null
 		     eval #proc ok
 		     check_p
+		     grep "namserver 127.0.0.1" /etc/resolv.conf
+		     [ $? != 0 ] && echo "nameserver 127.0.0.1" > /etc/resolv.conf
 		fi
 }
 net_interfaces()
 {
-echo -e -n "#Uncomment lines below for enable it\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
-net=("Target" \ "Ip" \ "Network" \ "Netmask")
+echo -e -n "#/etc/network/interfaces generated with ""UserSysM -p domain_create ${USM} ${DMC}""\nUncomment lines below for enable each interface.\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
+net=("Adapter" \ "Ip" \ "Network" \ "Netmask")
 clean_stat
 echo -e -n "\r\e[93mNetwork... \e[0mNº Targets: "
 read n_target
@@ -152,7 +154,7 @@ echo -e "\e[32m<=========>\e[0m"
 	echo -e -n "\r$i [$c]: "
 	read $i
 	done
-	echo -e "auto $Target\niface $target inet static\naddress $Ip\nnetmask $Netmask\nnetwork $network" >> /etc/network/interfaces
+	echo -e "auto $Adapter\niface $Adapter inet static\naddress $Ip\nnetmask $Netmask\nnetwork $Network" >> /etc/network/interfaces
 done
 nano /etc/network/interfaces
 /etc/init.d/NetworkManager restart > /dev/null 2>&1
@@ -177,27 +179,48 @@ clean_stat()
 {
 echo -e -n "\r                                                                                "
 }
-config_structure()
+kill_spin()
 {
-echo -e -n "\e[93mGenerating structure... \e[0m"
+{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+}
+spin()
+{
 load &
 spin_pid=$!
+}
+config_structure()
+{
+	echo -e -n "\e[93mGenerating structure... \e[0m"
+	spin
 	#usuarios
 	for u in ${users[@]}
 	do
-	/usr/sbin/useradd u -p 12345abcd. 2> /dev/null
+	samba-tool user create "$u" "12345abcd." 2> /dev/null
 	done
 	sleep 0.6
-mkdir /srv/samba /srv/samba/comun /srv/samba/dam1 /srv/samba/dam2 /srv/samba/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/personas/alumnos/dam1 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
-{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+	mkdir /srv/samba /srv/samba/comun /srv/samba/dam1 /srv/samba/dam2 /srv/samba/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/  personas/alumnos/dam1 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
+	clean_stat
+	kill_spin
+	samba-tool ou create 'OU=USUARIOS,DC=yago,DC=local' > /dev/null 2>&1
+	echo -e -n "\r\e[93mAdding folders links... \e[0m"
+	spin
+	grep "include = /etc/samba/smb.conf.share" /etc/samba/smb.conf > /dev/null 2>&1
+	[ $? != 0 ] && echo "include = /etc/samba/smb.conf.share" > /etc/samba/smb.conf
+	
+
+
+kill_spin
+eval
 check_p
 }
 
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
 	# Array con los paquetes necesarios para todo el proceso
-	packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "perl" \ "ntp" \ "ntp")
+	packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "ntp" \ "tree")
 	interfaces=("NetworkManager" \ "Networkd")
 	users=("sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe")
+	smb_folder=("profiles" \ "shares")
+	smb_parm=()
 	net_nf=0
 	net_f=0
 	once=0
