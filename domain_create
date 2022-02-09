@@ -1,4 +1,17 @@
 #!/bin/bash
+clean_stat()
+{
+echo -e -n "\r                                                                                "
+}
+kill_spin()
+{
+{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+}
+spin()
+{
+load &
+spin_pid=$!
+}
 load()
 {
 echo -n ""
@@ -175,19 +188,6 @@ config_all()
 	config_network
 	config_structure
 }
-clean_stat()
-{
-echo -e -n "\r                                                                                "
-}
-kill_spin()
-{
-{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
-}
-spin()
-{
-load &
-spin_pid=$!
-}
 config_structure()
 {
 	echo -e -n "\e[93mGenerating structure... \e[0m"
@@ -198,20 +198,31 @@ config_structure()
 	samba-tool user create "$u" "12345abcd." > /dev/null 2>&1
 	done
 	sleep 0.6
-	mkdir /srv/samba /srv/samba/comun /srv/samba/dam1 /srv/samba/dam2 /srv/samba/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/  personas/alumnos/dam1 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
-	clean_stat
+	[ ! -d /srv/samba ] && mkdir /srv/samba /srv/samba/comun /srv/samba/comun/dam1 /srv/samba/comun/dam2 /srv/samba/comun/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/personas/alumnos/dam1 /srv/usuarios/samba/personas/alumnos/dam2 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
+	samba-tool ou create "OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=comun" > /dev/null 2>&1
+	samba-tool ou create "OU=personas,OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=perfwindows,OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=perflinux,OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=profes,OU=personas,OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=alumnos,OU=personas,OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=dam1,OU=alumnos,OU=personas,OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=dam2,OU=alumnos,OU=personas,OU=usuarios" > /dev/null 2>&1
+	samba-tool ou create "OU=dam1,OU=comun" > /dev/null 2>&1
+	samba-tool ou create "OU=dam2,OU=comun" > /dev/null 2>&1
+	samba-tool ou create "OU=damdepartamentos,OU=comun" > /dev/null 2>&1
 	kill_spin
-	samba-tool ou create 'OU=USUARIOS,DC=yago,DC=local' > /dev/null 2>&1
+	eval && check_p
 	echo -e -n "\r\e[93mAdding folders links... \e[0m"
 	spin
 	grep "include = /etc/samba/smb.conf.share" /etc/samba/smb.conf > /dev/null 2>&1
-	[ $? != 0 ] && echo "include = /etc/samba/smb.conf.share" > /etc/samba/smb.conf
-	
-
-
-kill_spin
-eval
-check_p
+	[ $? != 0 ] && echo "include = /etc/samba/smb.conf.share" >> /etc/samba/smb.conf
+	eval && check_p
+	kill_spin
+	echo -e -n "\e[93mChecking users permissions... \e[0m"
+	spin
+	eval && check_p
+	kill_spin
 }
 
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
@@ -231,6 +242,7 @@ check_p
 		load &
 		spin_pid=$!
 		sleep .8
+		echo "deb http://deb.debian.org/debian bullseye main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye main contrib non-free\ndeb http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb-src http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb http://deb.debian.org/debian bullseye-updates main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye-updates main contrib non-free"
 		echo "deb http://download.webmin.com/download/repository sarge contrib" >> /etc/apt/sources.list
 		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
 		echo -n -e "\rLoading rep from archive.ubuntu.com...  "
@@ -238,7 +250,7 @@ check_p
 		spin_pid=$!
 		wget http://www.webmin.com/jcameron-key.asc > /dev/null 2>&1
 		apt-key add jcameron-key.asc > /dev/null 2>&1
-		apt update > /dev/null 2>&1
+		apt update -y > /dev/null 2>&1
 		rm jcameron-key.asc > /dev/null 2>&1
 		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
 		fi
