@@ -195,7 +195,7 @@ config_structure()
 	#usuarios
 	for u in ${users[@]}
 	do
-	samba-tool user create "$u" "12345abcd." 2> /dev/null
+	samba-tool user create "$u" "12345abcd." > /dev/null 2>&1
 	done
 	sleep 0.6
 	mkdir /srv/samba /srv/samba/comun /srv/samba/dam1 /srv/samba/dam2 /srv/samba/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/  personas/alumnos/dam1 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
@@ -270,4 +270,3 @@ check_p
 		esac
 
 fi
-
