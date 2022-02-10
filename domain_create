@@ -79,8 +79,7 @@ config_samba() #Configuracion del dominio y rol del equipo
 		echo -e "\e[32m+========================+\e[0m"
 		echo "Checking services..."
 		echo -e -n "\e[93mSamba... \e[0m"
-		load &
-		spin_pid=$!
+		spin
 		mv /var/lib/samba/private/krb5.conf /etc > /dev/null 2>&1
 		systemctl stop smbd winbind systemd-resolved > /dev/null 2>&1
 		systemctl disable smbd nmbd winbind systemd-resolved > /dev/null 2>&1
@@ -90,7 +89,7 @@ config_samba() #Configuracion del dominio y rol del equipo
 		systemctl enable samba-ad-dc > /dev/null 2>&1
 		systemctl restart samba-ad-dc > /dev/null 2>&1
 		systemctl start samba-ad-dc > /dev/null 2>&1
-		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+		kill_spin
 		eval
 		check_p
 	fi
@@ -196,6 +195,11 @@ config_structure()
 	for u in ${users[@]}
 	do
 	samba-tool user create "$u" "12345abcd." > /dev/null 2>&1
+	/usr/sbin/useradd $u  > /dev/null 2>&1
+	done
+	for g in ${groups[@]}
+	do
+	/usr/sbin/groupadd $g > /dev/null 2>&1
 	done
 	sleep 0.6
 	[ ! -d /srv/samba ] && mkdir /srv/samba /srv/samba/comun /srv/samba/comun/dam1 /srv/samba/comun/dam2 /srv/samba/comun/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/personas/alumnos/dam1 /srv/usuarios/samba/personas/alumnos/dam2 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
@@ -221,6 +225,26 @@ config_structure()
 	kill_spin
 	echo -e -n "\e[93mChecking users permissions... \e[0m"
 	spin
+	list_perm()
+	{
+	setfacl -m g:g-usuarios:r-x /srv/samba/usuarios
+	setfacl -m g:g-usuarios:r-x /srv/samba/usuarios/personas
+	setfacl -m u:sol:rwx /srv/samba/usuarios/personas/profes
+	setfacl -m g:g-dam1-alum:r-x /srv/samba/usuarios/personas/alumnos
+	setfacl -m g:g-dam1-profes:r-x /srv/samba/usuarios/personas/alumnos/dam1
+	setfacl -m u:mon:rwx /srv/samba/usuarios/personas/alumnos/dam1
+	setfacl -m g:g-dam2-alum:r-x /srv/samba/usuarios/personas/alumnos/dam2
+	setfacl -m g:g-dam2-profes:r-x /srv/samba/usuarios/personas/alumnos/dam2
+	setfacl -m u:pia:rwx /srv/samba/usuarios/personas/alumnos/dam2
+	setfacl -m g:g-usuarios:rwx /srv/samba/usuarios/perfwindows
+	setfacl -m u:sol:rwx,u:mon:rwx /srv/samba/usuarios/perfwindows
+	setfacl -m g:g-usuarios:rwx /srv/samba/usuarios/perflinux
+	setfacl -m u:sol:rwx,u:mon:rwx /srv/samba/usuarios/perflinux
+	setfacl -m g:g-profes:r-x /srv/samba/usuarios/personas/profes
+	setfacl -m g:g-dam1-profes:rwx /srv/samba/comun/dam1
+	setfacl -m g:g-dam1-alum:rwx /srv/samba/comun/dam1
+	}
+	list_perm > /dev/null 2>&1
 	eval && check_p
 	kill_spin
 }
@@ -230,6 +254,7 @@ config_structure()
 	packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "ntp" \ "tree")
 	interfaces=("NetworkManager" \ "Networkd")
 	users=("sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe")
+	groups=("g-usuarios" \ "domain-admins" \ "g-profes" \ "g-alum" \ "g-dam1-profes" \ "g-dam1-alum" \ "g-dam2-profes" \ "g-dam2-alum")
 	smb_folder=("profiles" \ "shares")
 	smb_parm=()
 	net_nf=0
@@ -239,20 +264,18 @@ config_structure()
 	grep "deb http://download.webmin.com/download/repository sarge contrib" /etc/apt/sources.list > /dev/null 2>&1
 		if [ $? != 0 ]; then
 		echo -n -e "\rModifying apt resources...  "
-		load &
-		spin_pid=$!
+		spin
 		sleep .8
-		echo "deb http://deb.debian.org/debian bullseye main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye main contrib non-free\ndeb http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb-src http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb http://deb.debian.org/debian bullseye-updates main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye-updates main contrib non-free"
-		echo "deb http://download.webmin.com/download/repository sarge contrib" >> /etc/apt/sources.list
-		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+		echo "deb http://deb.debian.org/debian bullseye main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye main contrib non-free\ndeb http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb-src http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb http://deb.debian.org/debian bullseye-updates main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye-updates main contrib non-free" > /etc/apt/sources.list 2>/dev/null
+		echo "deb http://download.webmin.com/download/repository sarge contrib" >> /etc/apt/sources.list 2>/dev/null
+		kill_spin
 		echo -n -e "\rLoading rep from archive.ubuntu.com...  "
-		load &
-		spin_pid=$!
+		spin
 		wget http://www.webmin.com/jcameron-key.asc > /dev/null 2>&1
 		apt-key add jcameron-key.asc > /dev/null 2>&1
 		apt update -y > /dev/null 2>&1
 		rm jcameron-key.asc > /dev/null 2>&1
-		{ kill $spin_pid && wait $spin_pid; } 2>/dev/null
+		kill_spin
 		fi
 	# Comprueba las dependencias
 	echo -e -n "\rChecking resources dependencies...  "
