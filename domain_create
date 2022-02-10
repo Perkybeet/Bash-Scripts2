@@ -28,11 +28,11 @@ bar="/|\\-/|\\-"
 }
 check_p() #Devuelve una respuesta en funcion del codigo stdout
 {
-	[ $? = 0 ] && echo -e "\e[32mOk.                         \e[0m $1" || echo -e "\e[91mERROR.                         \e[0m $1"
+	[ $? = 0 ] && echo -e "\e[32m[Ok]                         \e[0m $1" || echo -e "\e[91m[ERROR]                         \e[0m $1"
 }
 dpkg_solved() #Intenta solventar cualquier problema con la instalacion de algun paquete
 {
-[ $? != 0 ] && dpkg --configure -a; apt install -f -y; apt autoremove; mv /var/lib/dpkg/info/"${pack/ /}".* /tmp; apt --fix-broken install; apt update; apt install $pack --allow-remove-essential -y;
+if [ $? != 0 ]; then echo -n -e "\e[93mTrying to solve ${pack/ /} package installation error...\e[0m "; spin; dpkg --configure -a > /dev/null 2>&1; apt install -f -y > /dev/null 2>&1; apt autoremove > /dev/null 2>&1; mv /var/lib/dpkg/info/"${pack/ /}".* /tmp; apt --fix-broken install > /dev/null 2>&1; apt update > /dev/null 2>&1; apt install $pack --allow-remove-essential -y > /dev/null 2>&1;clean_stat;kill_spin;fi
 }
 confirm_install() #Confirma la instalacion de las dependencias
 {
@@ -61,7 +61,7 @@ then
         $i=1 > /dev/null 2>&1
 	falta+=("$i");
 else
-        [ $once = "0" ] && echo -e " \e[32mOk\e[0m";
+        [ $once = "0" ] && echo -e "\e[32m[Ok]\e[0m";
         $i=0 > /dev/null 2>&1
         once=1
 fi
@@ -70,7 +70,7 @@ fi
 config_samba() #Configuracion del dominio y rol del equipo
 {
 	mv /etc/samba/smb.conf /etc/samba/smb.conf.copy > /dev/null 2>&1
-	echo -e "\e[32m+========================+\e[0m"
+	echo -e "\n\e[32m+========================+\e[0m"
 	samba-tool domain provision
 	if [ $? != 0 ]; then
 		echo -e "\e[91mERROR:\e[0m samba-tool provided an exit code ($?)"
@@ -78,7 +78,7 @@ config_samba() #Configuracion del dominio y rol del equipo
 	else
 		echo -e "\e[32m+========================+\e[0m"
 		echo "Checking services..."
-		echo -e -n "\e[93mSamba... \e[0m"
+		echo -e -n "\e[93mConfiguring samba... \e[0m"
 		spin
 		mv /var/lib/samba/private/krb5.conf /etc > /dev/null 2>&1
 		systemctl stop smbd winbind systemd-resolved > /dev/null 2>&1
@@ -96,7 +96,7 @@ config_samba() #Configuracion del dominio y rol del equipo
 }
 config_apache()
 {
-	echo -e -n "\e[93mApache... \e[0m"
+	echo -e -n "\e[93mConfiguring apache... \e[0m"
 	load &
 	spin_pid=$!
 	systemctl start apache2 > /dev/null 2>&1
@@ -108,7 +108,7 @@ config_apache()
 }
 config_ufw() #Configuracion del funcionamiento y estado del firewall
 {
-	echo -e -n "\e[93mUfw... \e[0m"
+	echo -e -n "\e[93mConfiguring ufw... \e[0m"
 	load &
 	spin_pid=$!
 	ufw allow 'Apache' > /dev/null 2>&1
@@ -125,7 +125,7 @@ config_ufw() #Configuracion del funcionamiento y estado del firewall
 }
 config_network()
 {
-	echo -e -n "\e[93mNetwork... \e[0m"
+	echo -e -n "\e[93mConfiguring network... \e[0m"
 	read -N1 -s -p "Change network config? (y/n) " change_net
 
 		if [ $change_net = "y" ]; then
@@ -139,8 +139,8 @@ config_network()
 					fi
 			done
 			if [ $net_nf = ${#interfaces[@]} ]; then echo -e "\e[91mERROR:\e[0m Network target not found x$$, changing default..."; net_interfaces; fi
-		else echo -e -n "\r\e[93mNetwork...                                      \e[0m"
-		     echo -e -n "\r\e[93mNetwork...  \e[0m"
+		else clean_stat
+		     echo -e -n "\r\e[93mConfiguring network...  \e[0m"
 		     load &
 		     spin_pid=$!
 		     sleep 2.5
@@ -153,10 +153,10 @@ config_network()
 }
 net_interfaces()
 {
-echo -e -n "#/etc/network/interfaces generated with ""UserSysM -p domain_create ${USM} ${DMC}""\nUncomment lines below for enable each interface.\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
+echo -e -n "#/etc/network/interfaces generated with ""UserSysM -p domain_create ${USM} ${DMC}""\n#Uncomment lines below for enable each interface.\n\n#Loopback network\n#auto lo\n#iface lo inet loopback\n\n#Primary network\n#allow-hotplug enp0s3\n#iface enp0s3 inet dhcp\n\n" > /etc/network/interfaces
 net=("Adapter" \ "Ip" \ "Network" \ "Netmask")
 clean_stat
-echo -e -n "\r\e[93mNetwork... \e[0mNº Targets: "
+echo -e -n "\r\e[93mSetting network... \e[0mNº Targets: "
 read n_target
 for (( c=1; c<=$n_target; c++ ))
 do
@@ -189,7 +189,21 @@ config_all()
 }
 config_structure()
 {
-	echo -e -n "\e[93mGenerating structure... \e[0m"
+	echo -e -n "\e[93mCreating partitions... \e[0m"
+	spin
+	mkdir -p /srv/samba/usuarios /srv/samba/comun > /dev/null 2>&1
+	echo -e "n\np\n\n\n10485759\n\nw" | /usr/sbin/fdisk /dev/sdb > /dev/null 2>&1
+	echo -e "n\np\n\n\n10485759\n\nw" | /usr/sbin/fdisk /dev/sdb > /dev/null 2>&1
+	echo -e "y\n" | /sbin/mkfs.ext4 /dev/sdb > /dev/null 2>&1
+	mount -a
+	echo -e "y\n" | /sbin/mkfs.ext4 /dev/sdb1 > /dev/null 2>&1
+	echo -e "y\n" | /sbin/mkfs.ext4 /dev/sdb2 > /dev/null 2>&1
+	mount /dev/sdb1 /srv/samba/usuarios > /dev/null 2>&1
+	mount /dev/sdb2 /srv/samba/comun > /dev/null 2>&1
+	kill_spin
+	eval
+	check_p
+	echo -e -n "\r\e[93mGenerating structure... \e[0m"
 	spin
 	#usuarios
 	for u in ${users[@]}
@@ -197,12 +211,13 @@ config_structure()
 	samba-tool user create "$u" "12345abcd." > /dev/null 2>&1
 	/usr/sbin/useradd $u  > /dev/null 2>&1
 	done
+	/usr/sbin/addgroup Administrator root > /dev/null 2>&1
 	for g in ${groups[@]}
 	do
 	/usr/sbin/groupadd $g > /dev/null 2>&1
 	done
 	sleep 0.6
-	[ ! -d /srv/samba ] && mkdir /srv/samba /srv/samba/comun /srv/samba/comun/dam1 /srv/samba/comun/dam2 /srv/samba/comun/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/personas/alumnos/dam1 /srv/usuarios/samba/personas/alumnos/dam2 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
+	[ -d /srv/samba ] && mkdir -p /srv/samba/comun/dam1 /srv/samba/comun/dam2 /srv/samba/comun/departamentos /srv/samba/usuarios /srv/samba/usuarios/personas /srv/samba/usuarios/personas/profes /srv/samba/usuarios/personas/alumnos /srv/samba/usuarios/personas/alumnos/dam1 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/personas/alumnos/dam2 /srv/samba/usuarios/perfwindows /srv/samba/usuarios/perflinux > /dev/null 2>&1
 	samba-tool ou create "OU=usuarios" > /dev/null 2>&1
 	samba-tool ou create "OU=comun" > /dev/null 2>&1
 	samba-tool ou create "OU=personas,OU=usuarios" > /dev/null 2>&1
@@ -221,12 +236,14 @@ config_structure()
 	spin
 	grep "include = /etc/samba/smb.conf.share" /etc/samba/smb.conf > /dev/null 2>&1
 	[ $? != 0 ] && echo "include = /etc/samba/smb.conf.share" >> /etc/samba/smb.conf
+	echo -e "[samba]\n   path = /srv/samba\n   browseable = yes" > /etc/samba/smb.conf.share 2>/dev/null
 	eval && check_p
 	kill_spin
 	echo -e -n "\e[93mChecking users permissions... \e[0m"
 	spin
 	list_perm()
 	{
+	setfacl -Rm u:Administrator:rwx /srv/samba
 	setfacl -m g:g-usuarios:r-x /srv/samba/usuarios
 	setfacl -m g:g-usuarios:r-x /srv/samba/usuarios/personas
 	setfacl -m u:sol:rwx /srv/samba/usuarios/personas/profes
@@ -251,9 +268,9 @@ config_structure()
 
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
 	# Array con los paquetes necesarios para todo el proceso
-	packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "ntp" \ "tree")
+	packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "ntp" \ "tree" \ "fdisk")
 	interfaces=("NetworkManager" \ "Networkd")
-	users=("sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe")
+	users=("sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe" \ "Administrator")
 	groups=("g-usuarios" \ "domain-admins" \ "g-profes" \ "g-alum" \ "g-dam1-profes" \ "g-dam1-alum" \ "g-dam2-profes" \ "g-dam2-alum")
 	smb_folder=("profiles" \ "shares")
 	smb_parm=()
@@ -266,7 +283,7 @@ config_structure()
 		echo -n -e "\rModifying apt resources...  "
 		spin
 		sleep .8
-		echo "deb http://deb.debian.org/debian bullseye main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye main contrib non-free\ndeb http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb-src http://deb.debian.org/debian-security/ bullseye-security main contrib non-free\ndeb http://deb.debian.org/debian bullseye-updates main contrib non-free\ndeb-src http://deb.debian.org/debian bullseye-updates main contrib non-free" > /etc/apt/sources.list 2>/dev/null
+		echo -e "deb http://deb.debian.org/debian/ bullseye main\ndeb-src http://deb.debian.org/debian/ bullseye main\ndeb http://security.debian.org/debian-security bullseye-security main contrib\ndeb-src http://security.debian.org/debian-security bullseye-security main contrib\ndeb http://deb.debian.org/debian/ bullseye-updates main contrib\ndeb-src http://deb.debian.org/debian/ bullseye-updates main contrib" > /etc/apt/sources.list 2>/dev/null
 		echo "deb http://download.webmin.com/download/repository sarge contrib" >> /etc/apt/sources.list 2>/dev/null
 		kill_spin
 		echo -n -e "\rLoading rep from archive.ubuntu.com...  "
@@ -279,6 +296,10 @@ config_structure()
 		fi
 	# Comprueba las dependencias
 	echo -e -n "\rChecking resources dependencies...  "
+	spin
+	/usr/sbin/fdisk -l /dev/sdb > /dev/null 2>&1
+	if [ $? != 0 ]; then echo -e "\e[91m[ERROR]\nE:\e[0mDisk /dev/sdb can't be found. Please, make sure is created"; kill_spin; exit 1; fi
+	kill_spin
 		for i in "${packages[@]}"
 		do
 		dpkg -s $i > /dev/null 2>&1
@@ -291,6 +312,8 @@ config_structure()
 	invalid_in2="\e[91mERROR:\e[0m Invalid argument ($2)"
 	missing="\e[91mERROR:\e[0m One or more arguments are missing"
 		case $1 in
+		--help)echo -e "Usage domain_create [OPTION] [PROCESS]\nCreator/Administrator tool for samba domain system.\n\nOptions:\n  -h, --help\tDisplays this menu\n  -p, --process\tSet second argument as a process\n  -u, --user\tFor user administration.\n\nDEP of UserSysM (https://github.com/Perkybeet): <prk.software@gmail.com>"
+			;;
 		user)	case $2 in
 			create);;
 			add);;
@@ -305,3 +328,4 @@ config_structure()
 		esac
 
 fi
+
