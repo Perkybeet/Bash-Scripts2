@@ -189,7 +189,7 @@ config_all()
 }
 config_structure()
 {
-	echo -e -n "\e[93mCreating partitions... \e[0m"
+	echo -e -n "\e[93mCreating partitions... \e[0m" #Crea y monta las particiones donde se crearan los directorios <samba>
 	spin
 	mkdir -p /srv/samba/usuarios /srv/samba/comun > /dev/null 2>&1
 	echo -e "n\np\n\n\n10485759\n\nw" | /usr/sbin/fdisk /dev/sdb > /dev/null 2>&1
@@ -203,7 +203,7 @@ config_structure()
 	kill_spin
 	eval
 	check_p
-	echo -e -n "\r\e[93mGenerating structure... \e[0m"
+	echo -e -n "\r\e[93mGenerating structure... \e[0m" #Genera la estructura de directorios
 	spin
 	#usuarios
 	for u in ${users[@]}
@@ -232,7 +232,7 @@ config_structure()
 	samba-tool ou create "OU=damdepartamentos,OU=comun" > /dev/null 2>&1
 	kill_spin
 	eval && check_p
-	echo -e -n "\r\e[93mAdding folders links... \e[0m"
+	echo -e -n "\r\e[93mAdding folders links... \e[0m" #Enlaza el archivo de configuracion de samba creado al original
 	spin
 	grep "include = /etc/samba/smb.conf.share" /etc/samba/smb.conf > /dev/null 2>&1
 	[ $? != 0 ] && echo "include = /etc/samba/smb.conf.share" >> /etc/samba/smb.conf
@@ -262,19 +262,18 @@ config_structure()
 	setfacl -m g:g-dam1-alum:rwx /srv/samba/comun/dam1
 	}
 	list_perm > /dev/null 2>&1
-	eval && check_p
+	eval && check_p #proc ok
 	kill_spin
-	exit 0
 }
 
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
-	# Array con los paquetes necesarios para todo el proceso
 	packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "ntp" \ "tree" \ "fdisk")
 	interfaces=("NetworkManager" \ "Networkd")
 	users=("sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe" \ "Administrator")
 	groups=("g-usuarios" \ "domain-admins" \ "g-profes" \ "g-alum" \ "g-dam1-profes" \ "g-dam1-alum" \ "g-dam2-profes" \ "g-dam2-alum")
 	smb_folder=("profiles" \ "shares")
-	smb_parm=()
+	smb_parm=("awk '{print $4}' | . SMB=")
+	rollback=()
 	net_nf=0
 	net_f=0
 	once=0
@@ -316,15 +315,18 @@ config_structure()
 		--help)echo -e "Usage domain_create [OPTION] [PROCESS]\nCreator/Administrator tool for samba domain system.\n\nOptions:\n  -h, --help\tDisplays this menu\n  -p, --process\tSet second argument as a process\n  -u, --user\tFor user administration.\n\nDEP of UserSysM (https://github.com/Perkybeet): <prk.software@gmail.com>"
 			;;
 		user)	case $2 in
-			create);;
-			add);;
-			delete);;
+			create) samba-tool user create $3 $4; useradd $3;;
+			acl) setfacl u:$3:$4 $5;;
+			delete) samba-tool user delete $3; userdel $3;;;
 			"")echo -e $missing;;
 			*)echo -e $invalid_in2;;
 			esac;;
 		time);;
-		-p)config_$2;;
-		"")echo -e $missing;;
+		-p)	case $2 in
+                        "")echo -e $missing;;
+                        *)config_$2;;
+                        esac;;
+			;;
 		*)echo -e $invalid_in1;;
 		esac
 
