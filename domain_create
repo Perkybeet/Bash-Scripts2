@@ -264,6 +264,7 @@ config_structure()
 	list_perm > /dev/null 2>&1
 	eval && check_p
 	kill_spin
+	exit 0
 }
 
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
