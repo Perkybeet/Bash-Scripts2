@@ -9,5 +9,5 @@
 #---------------------------------------------------------------------------
 
 #modificar valor "% " para alterar la escala.
-num=$((RANDOM%10))
+num=$((RANDOM%$1))
 echo $num
