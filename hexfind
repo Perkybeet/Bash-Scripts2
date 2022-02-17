@@ -1,0 +1,12 @@
+#cmd_alt=`echo ""`
+#./hexfind "'$1'" >> log
+for (( i=0; i <= 9000; i++ ))
+do 
+echo -n "$i"
+cmd=`echo -n -e "\r\0$i" | grep -w "$1"`
+	if [ $? = 0 ]
+	then
+		echo -e "\r\0$i ------> $i\n"
+	fi
+done
+echo -e "\r<----------> $1"
