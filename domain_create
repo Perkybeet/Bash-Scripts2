@@ -317,7 +317,7 @@ config_structure()
 		user)	case $2 in
 			create) samba-tool user create $3 $4; useradd $3;;
 			acl) setfacl u:$3:$4 $5;;
-			delete) samba-tool user delete $3; userdel $3;;;
+			delete) samba-tool user delete $3; userdel $3;;
 			"")echo -e $missing;;
 			*)echo -e $invalid_in2;;
 			esac;;
@@ -326,7 +326,6 @@ config_structure()
                         "")echo -e $missing;;
                         *)config_$2;;
                         esac;;
-			;;
 		*)echo -e $invalid_in1;;
 		esac
 
