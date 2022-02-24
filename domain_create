@@ -141,7 +141,7 @@ config_network()
 {
     echo -e -n "\e[93mConfiguring network... \e[0m"
     read -N1 -s -p "Change network config? (y/n) " change_net
-    
+
     if [ $change_net = "y" ]; then
         for target in ${interfaces[@]}
         do
@@ -242,7 +242,7 @@ config_structure()
     spin
     grep "include = /etc/samba/smb.conf.share" /etc/samba/smb.conf > /dev/null 2>&1
     [ $? != 0 ] && echo "include = /etc/samba/smb.conf.share" >> /etc/samba/smb.conf
-    echo -e "[samba]\n   path = /srv/samba\n   browseable = yes" > /etc/samba/smb.conf.share 2>/dev/null
+    echo -e "[samba]\n   path = /srv/samba\n   browseable = yes\n   acl_xattr:ignore system acls = yes\n" > /etc/samba/smb.conf.share 2>/dev/null
     eval && check_p
     kill_spin
     echo -e -n "\e[93mChecking users permissions... \e[0m"
@@ -269,6 +269,9 @@ config_structure()
         setfacl -m g:g-dam1-alum:rwx /srv/samba/comun/dam1
     }
     list_perm > /dev/null 2>&1
+    smbcontrol all reload-config
+    chown -R 3000000:3000000 /srv
+    chmod 777 -R /srv
     eval && check_p #proc ok
     kill_spin
 }
@@ -442,7 +445,7 @@ parm()
 [ "$UID" != "0" ] && echo -e "\e[93mWARNING:\e[0m It's recomended to execute as root to prevent any error." && exit
 packages=("krb5-config" \ "samba" \ "smbclient" \ "winbind" \ "apache2" \ "ufw" \ "webmin" \ "wget" \ "openssl" \ "ntp" \ "tree" \ "fdisk")
 interfaces=("NetworkManager" \ "Networkd")
-users=("pepe" \ "fran" \ "sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe" \ "Administrator")
+users=("fran" \ "sol" \ "mon" \ "tom" \ "pia" \ "paz" \ "noe" \ "Administrator")
 groups=("g-usuarios" \ "domain-admins" \ "g-profes" \ "g-alum" \ "g-dam1-profes" \ "g-dam1-alum" \ "g-dam2-profes" \ "g-dam2-alum")
 smb_folder=("profiles" \ "shares")
 smb_parm=("awk '{print $4}' | . SMB=")
