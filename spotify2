@@ -1,0 +1,36 @@
+#!/bin/bash
+l_file() #
+{
+folder_music="/home/yago/musica"
+folder_music_content=`ls $folder_music | xargs`
+num_files=`ls $folder_music | cut -f1 -d" " | wc -l | xargs`
+files=()
+pid=`ps -a | grep spotify2 | xargs | cut -f1 -d" "`
+if [ ! -d "$folder_music/playlist/" ]; then mkdir -p "$folder_music/playlist"; chmod 777 "$folder_music/playlist"; fi
+if [[ "$num_files" -eq 2 ]]; then
+
+	for (( i=1; i<=$num_files; i++))
+	do
+		file=`ls $folder_music | xargs | cut -f$i -d" "`
+		if [[ "$file" != "spotify2" && "$file" != "playlist" ]]; then files+=("$file"); fi
+	done
+	download_file
+fi
+}
+download_file()
+{
+	for files_list in ${files[@]}
+	do
+	notify-send "Starting download from $folder_music/$files_list"
+	num_lines=`wc -l "$folder_music/$files_list" | cut -f1 -d" " | xargs`
+		while read -r url
+		do
+			if [[ $n -eq $num_lines ]]; then rm "$folder_music/$files_list" | exit | notify-send "Finished from `pwd`/$files_list" | spotify2 | kill -9 $pid > /dev/null 2>&1; fi
+			youtube-dl -o "$folder_music/playlist/%(title)s.%(ext)s" -x --audio-format mp3 $url > /dev/null 2>&1
+			n=$((n+1))
+		done < "$folder_music/$files_list"
+	done
+}
+l_file
+
+while true; do l_file ;sleep 1; done
