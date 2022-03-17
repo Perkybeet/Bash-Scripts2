@@ -1,0 +1,23 @@
+#!/bin/bash
+AM="\033[1;33m"  ## Color Amarillo
+RO="\033[1;31m"  ## Color Rojo
+VE="\033[1;32m"  ## Color Verde
+CL=              ## Color Temporal
+C="\e[0m"        ## Limpiar colores
+IFS=' '
+log_time=`date +"%b %d %r"`
+while true;do
+port_5500=`nc -d -l 5500`
+pid_5500=$!
+w_text=($port_5500)
+    #for (( parm=0; parm <= ${#w_text}; parm++ ))
+    #do
+    #echo ${w_text[$parm]}
+    #done
+    echo "Comando: $port_5500"
+    eval "${port_5500}"
+    std_cmd=$?
+    if [ $std_cmd != 0 ];then std_cmd=1 && CL=$RO && stdout="Err: ./${port_5500} not found"; else std_cmd=0 && CL=$VE; fi
+    echo -e "[$log_time] -$pid_cmd- $CL $port_5500 - $stdout std: $std_cmd$C" >> /home/yago/scripts/usm.log
+done
+
