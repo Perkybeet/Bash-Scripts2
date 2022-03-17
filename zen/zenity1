@@ -1,9 +1,0 @@
-#!/bin/bash
-
-#Darle a una palabra una secuencia de comandos.
-
-foto="`zenity --scale --value 80 --min-value 60 --max-value 100`"
-
-#comando para comprimir la imagen
-
-convert -quality $foto *.jpg
