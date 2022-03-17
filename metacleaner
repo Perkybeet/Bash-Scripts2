@@ -1,0 +1,24 @@
+#!/bin/bash
+meta_all()
+{
+IFS= 
+meta_dir="/home/yago/metacleaner"
+num_files=`ls /home/$logname| wc -l | xargs`
+hidden_files=()
+mkdir "$meta_dir/no-meta"
+for (( i=1; i<=$num_files; i++ ))
+do
+file=`ls $meta_dir | xargs | cut -f1 -d' '`
+	if [ "$file" != "no-meta" ]; then
+	exiftool -all= "$meta_dir/$file"
+	rm "$meta_dir/"$file"_original"
+	mv "$meta_dir/$file" "$meta_dir/.$file"
+	hidden_files+=("$file")
+	fi
+done
+for files in ${hidden_files[@]}
+do
+mv "$meta_dir/.$files" "$meta_dir/no-meta/$files"
+done
+}
+meta_all > /dev/null 2>&1
