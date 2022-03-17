@@ -1,7 +1,0 @@
-#!bin/bash
-#visualizar archivos
-while [ ! -z $1 ]
-do
-    cat $1
-    shift
-done
